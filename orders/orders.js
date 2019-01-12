@@ -1,8 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const axios = require('axios');
 const bodyParser = require('body-parser');
 const app = express();
-mongoose.connect("mongodb://rooot:root123@ds153974.mlab.com:53974/ordersservice", ()=>{console.log("Order DB is connected...")});
+mongoose.connect("mongodb://root:root123@ds153974.mlab.com:53974/ordersservice", ()=>{console.log("Order DB is connected...")});
 app.use(bodyParser.json());
 
 require('./Order');
@@ -19,16 +20,9 @@ app.post('/order', (req, res)=>{
         initialDate: req.body.initialDate,
         deliveryDate: req.body.deliveryDate
     };
-    console.log(newOrder);
-    const order = new Order(newOrder);
-    order.save().then(()=>{
-       res.send('order created');
-    }).catch(err => {
-        if (err) throw err;
-    });
-    console.log(JSON.stringify(order));
-    // if (!order) { res.send('New order Cannot created!') }
-    // res.send('New order Created Successfully');
+    const order = new Order(newOrder).save();
+    if (!order) { res.send('New order Cannot created!') }
+    res.send('New order Created Successfully');
 });
 
 app.get('/orders', (req, res)=>{
@@ -42,9 +36,16 @@ app.get('/orders', (req, res)=>{
 app.get('/order/:id', (req, res)=>{
     Order.findById(req.params.id).then(order => {
         if (order) {
-            res.json(order);
+            const object = {customer: '', book: '', reciveDate: order.initialDate, deliveryDate: order.deliveryDate};
+            axios.get("http://localhost:4000/customer/"+order.CustomerID).then(response => {
+                object.customer = response.data;
+                axios.get("http://localhost:3000/book/"+order.BookID).then(response => {
+                    object.book = response.data;
+                    res.json(object);
+                });
+            });
         }else {
-            res.sendStatus(404);
+            res.send("Invalid Order");
         }
     }).catch(err => {
         if (err) throw err;
